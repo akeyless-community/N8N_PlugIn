@@ -122,6 +122,24 @@ export class Akeyless implements INodeType {
 						description: 'Create a new secret in Akeyless',
 						action: 'Create secret',
 					},
+					{
+						name: 'Delete Items',
+						value: 'deleteItems',
+						description: 'Delete items from Akeyless',
+						action: 'Delete items',
+					},
+					{
+						name: 'Create Folder',
+						value: 'createFolder',
+						description: 'Create a folder in Akeyless',
+						action: 'Create folder',
+					},
+					{
+						name: 'Delete Folder',
+						value: 'deleteFolder',
+						description: 'Delete a folder from Akeyless',
+						action: 'Delete folder',
+					},
 				],
 				default: 'getStaticSecret',
 			},
@@ -299,6 +317,92 @@ export class Akeyless implements INodeType {
 				},
 			},
 			{
+				displayName: 'Path',
+				name: 'path',
+				type: 'string',
+				default: '',
+				placeholder: 'item_name',
+				description: 'The path/name of the item(s) to delete',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['deleteItems'],
+					},
+				},
+			},
+			{
+				displayName: 'Folder Name',
+				name: 'folderName',
+				type: 'string',
+				default: '',
+				placeholder: 'folder_name',
+				description: 'The name of the folder',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['createFolder', 'deleteFolder'],
+					},
+				},
+			},
+			{
+				displayName: 'Accessibility',
+				name: 'folderAccessibility',
+				type: 'options',
+				options: [
+					{
+						name: 'Regular',
+						value: 'regular',
+					},
+					{
+						name: 'Personal',
+						value: 'personal',
+					},
+				],
+				default: 'regular',
+				description: 'Folder accessibility type',
+				displayOptions: {
+					show: {
+						operation: ['createFolder', 'deleteFolder'],
+					},
+				},
+			},
+			{
+				displayName: 'Folder Name',
+				name: 'folderName',
+				type: 'string',
+				default: '',
+				placeholder: 'folder_name',
+				description: 'The name of the folder',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['createFolder', 'deleteFolder'],
+					},
+				},
+			},
+			{
+				displayName: 'Accessibility',
+				name: 'folderAccessibility',
+				type: 'options',
+				options: [
+					{
+						name: 'Regular',
+						value: 'regular',
+					},
+					{
+						name: 'Personal',
+						value: 'personal',
+					},
+				],
+				default: 'regular',
+				description: 'Folder accessibility type',
+				displayOptions: {
+					show: {
+						operation: ['createFolder', 'deleteFolder'],
+					},
+				},
+			},
+			{
 				displayName: 'Additional Fields',
 				name: 'additionalFields',
 				type: 'collection',
@@ -462,6 +566,76 @@ export class Akeyless implements INodeType {
 								'Content-Type': 'application/json',
 							},
 							data: requestData,
+						});
+
+						// Return raw response data
+						responseData = response.data;
+						break;
+					}
+					case 'deleteItems': {
+						const path = this.getNodeParameter('path', i) as string;
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/delete-items`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: {
+								json: false,
+								token: token,
+								path: path,
+							},
+						});
+
+						// Return raw response data
+						responseData = response.data;
+						break;
+					}
+					case 'createFolder': {
+						const folderName = this.getNodeParameter('folderName', i) as string;
+						const folderAccessibility = this.getNodeParameter('folderAccessibility', i, 'regular') as string;
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/folder-create`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: {
+								accessibility: folderAccessibility,
+								json: false,
+								name: folderName,
+								token: token,
+							},
+						});
+
+						// Return raw response data
+						responseData = response.data;
+						break;
+					}
+					case 'deleteFolder': {
+						const folderName = this.getNodeParameter('folderName', i) as string;
+						const folderAccessibility = this.getNodeParameter('folderAccessibility', i, 'regular') as string;
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/folder-delete`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: {
+								accessibility: folderAccessibility,
+								json: false,
+								name: folderName,
+								token: token,
+							},
 						});
 
 						// Return raw response data
