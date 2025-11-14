@@ -116,6 +116,12 @@ export class Akeyless implements INodeType {
 						description: 'Get a dynamic secret value',
 						action: 'Get dynamic secret value',
 					},
+					{
+						name: 'Create Secret',
+						value: 'createSecret',
+						description: 'Create a new secret in Akeyless',
+						action: 'Create secret',
+					},
 				],
 				default: 'getStaticSecret',
 			},
@@ -129,7 +135,7 @@ export class Akeyless implements INodeType {
 				required: true,
 				displayOptions: {
 					show: {
-						operation: ['getStaticSecret', 'getRotatedSecret', 'getDynamicSecret'],
+						operation: ['getStaticSecret', 'getRotatedSecret', 'getDynamicSecret', 'createSecret'],
 					},
 				},
 			},
@@ -151,7 +157,7 @@ export class Akeyless implements INodeType {
 				description: 'Secret accessibility type',
 				displayOptions: {
 					show: {
-						operation: ['getStaticSecret'],
+						operation: ['getStaticSecret', 'createSecret'],
 					},
 				},
 			},
@@ -176,6 +182,119 @@ export class Akeyless implements INodeType {
 				displayOptions: {
 					show: {
 						operation: ['getDynamicSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Secret Value',
+				name: 'secretValue',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+				default: '',
+				description: 'The value of the secret to create (for generic type)',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
+						secretType: ['generic'],
+					},
+				},
+			},
+			{
+				displayName: 'Username',
+				name: 'username',
+				type: 'string',
+				default: '',
+				description: 'Username for password type secret',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
+						secretType: ['password'],
+					},
+				},
+			},
+			{
+				displayName: 'Password',
+				name: 'password',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+				default: '',
+				description: 'Password for password type secret',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
+						secretType: ['password'],
+					},
+				},
+			},
+			{
+				displayName: 'Format',
+				name: 'format',
+				type: 'options',
+				options: [
+					{
+						name: 'Text',
+						value: 'text',
+					},
+					{
+						name: 'JSON',
+						value: 'json',
+					},
+				],
+				default: 'text',
+				description: 'Secret format',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Type',
+				name: 'secretType',
+				type: 'options',
+				options: [
+					{
+						name: 'Generic',
+						value: 'generic',
+					},
+					{
+						name: 'Password',
+						value: 'password',
+					},
+				],
+				default: 'generic',
+				description: 'Secret type',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Secure Access Web Browsing',
+				name: 'secureAccessWebBrowsing',
+				type: 'boolean',
+				default: false,
+				description: 'Enable secure access web browsing',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Secure Access Web Proxy',
+				name: 'secureAccessWebProxy',
+				type: 'boolean',
+				default: false,
+				description: 'Enable secure access web proxy',
+				displayOptions: {
+					show: {
+						operation: ['createSecret'],
 					},
 				},
 			},
@@ -296,6 +415,53 @@ export class Akeyless implements INodeType {
 								name: secretName,
 								token: token,
 							},
+						});
+
+						// Return raw response data
+						responseData = response.data;
+						break;
+					}
+					case 'createSecret': {
+						const secretName = this.getNodeParameter('secretName', i) as string;
+						const accessibility = this.getNodeParameter('accessibility', i, 'regular') as string;
+						const format = this.getNodeParameter('format', i, 'text') as string;
+						const secretType = this.getNodeParameter('secretType', i, 'generic') as string;
+						const secureAccessWebBrowsing = this.getNodeParameter('secureAccessWebBrowsing', i, false) as boolean;
+						const secureAccessWebProxy = this.getNodeParameter('secureAccessWebProxy', i, false) as boolean;
+
+						// Build request data based on secret type
+						const requestData: any = {
+							accessibility: accessibility,
+							format: format,
+							json: false,
+							'secure-access-web-browsing': secureAccessWebBrowsing,
+							'secure-access-web-proxy': secureAccessWebProxy,
+							type: secretType,
+							token: token,
+							name: secretName,
+						};
+
+						// For password type, use username and password fields
+						if (secretType === 'password') {
+							const username = this.getNodeParameter('username', i) as string;
+							const password = this.getNodeParameter('password', i) as string;
+							requestData.username = username;
+							requestData.password = password;
+						} else {
+							// For generic type, use value field
+							const secretValue = this.getNodeParameter('secretValue', i) as string;
+							requestData.value = secretValue;
+						}
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/create-secret`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: requestData,
 						});
 
 						// Return raw response data
