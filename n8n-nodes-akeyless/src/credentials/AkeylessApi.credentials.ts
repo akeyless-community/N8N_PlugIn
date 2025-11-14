@@ -3,21 +3,8 @@ import { ICredentialType, INodeProperties } from 'n8n-workflow';
 export class AkeylessApi implements ICredentialType {
 	name = 'akeylessApi';
 	displayName = 'Akeyless Security';
-	documentationUrl = 'https://docs.akeyless.io/';
 
 	properties: INodeProperties[] = [
-		{
-			displayName: 'Akeyless Vaultless Secrets Management',
-			name: 'notice',
-			type: 'notice',
-			default: '',
-		},
-		{
-			displayName: '📖 For complete setup instructions and troubleshooting guide, <a href="https://docs.akeyless.io/" target="_blank">visit Akeyless documentation</a>',
-			name: 'noticeDocs',
-			type: 'notice',
-			default: '',
-		},
 		{
 			displayName: 'API Base URL',
 			name: 'url',
