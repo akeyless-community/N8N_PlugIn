@@ -20,11 +20,20 @@ async function authenticateAkeyless(
 		}
 
 		// Otherwise, authenticate using Access ID + Access Key
+		// Validate that Access ID and Access Key are provided
+		if (!credentials.accessId || !credentials.accessKey) {
+			throw new NodeOperationError(this.getNode(), 'Access ID and Access Key are required when not using token authentication');
+		}
+
 		const authUrl = `${credentials.url}/auth`;
 		
 		if (credentials.allowUnauthorizedCerts) {
 			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 		}
+
+		// Trim whitespace from credentials
+		const accessId = (credentials.accessId as string).trim();
+		const accessKey = (credentials.accessKey as string).trim();
 
 		const config: AxiosRequestConfig = {
 			method: 'POST',
@@ -37,8 +46,8 @@ async function authenticateAkeyless(
 				'gcp-audience': 'akeyless.io',
 				'json': false,
 				'oci-auth-type': 'apikey',
-				'access-id': credentials.accessId,
-				'access-key': credentials.accessKey,
+				'access-id': accessId,
+				'access-key': accessKey,
 			},
 		};
 		
@@ -61,43 +70,6 @@ async function authenticateAkeyless(
 	}
 }
 
-// Read secret from Akeyless (minimal API: /get-secret-value)
-async function readSecret(
-	this: IExecuteFunctions,
-	config: AxiosRequestConfig,
-	secretName: string,
-	token: string,
-	itemIndex: number,
-): Promise<any> {
-	try {
-		const response = await axios({
-			...config,
-			method: 'POST',
-			url: `${config.baseURL}/get-secret-value`,
-			headers: {
-				'Content-Type': 'application/json',
-				'accept': 'application/json',
-			},
-			data: {
-				'accessibility': 'regular',
-				'ignore-cache': 'false',
-				'json': false,
-				'names': [secretName],
-				'token': token,
-			},
-		});
-
-		// Response is a map: { "<name>": "<value>" }
-		const data = response.data || {};
-		const value = data[secretName] ?? '';
-		return { name: secretName, value };
-	} catch (error: any) {
-		const errorMessage = error.response?.data?.error || 
-			error.response?.data?.message || 
-			(error instanceof Error ? error.message : 'Unknown error');
-		throw new NodeOperationError(this.getNode(), `Failed to read secret: ${errorMessage}`);
-	}
-}
 
 export class Akeyless implements INodeType {
 	description: INodeTypeDescription = {
@@ -107,7 +79,7 @@ export class Akeyless implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Read a secret from Akeyless using Access ID + Access Key',
+		description: 'Interact with Akeyless API - Get static, rotated, or dynamic secrets',
 		defaults: {
 			name: 'Akeyless',
 		},
@@ -127,25 +99,83 @@ export class Akeyless implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Read Secret',
-						value: 'readSecret',
-						description: 'Read a secret value from Akeyless',
-						action: 'Read a secret value',
+						name: 'Get Static Secret Value',
+						value: 'getStaticSecret',
+						description: 'Get a static secret value',
+						action: 'Get static secret value',
+					},
+					{
+						name: 'Get Rotated Secret Value',
+						value: 'getRotatedSecret',
+						description: 'Get a rotated secret value',
+						action: 'Get rotated secret value',
+					},
+					{
+						name: 'Get Dynamic Secret Value',
+						value: 'getDynamicSecret',
+						description: 'Get a dynamic secret value',
+						action: 'Get dynamic secret value',
 					},
 				],
-				default: 'readSecret',
+				default: 'getStaticSecret',
 			},
 			{
 				displayName: 'Secret Name',
 				name: 'secretName',
 				type: 'string',
 				default: '',
-				placeholder: '/myapp/database/password',
-				description: 'The full path/name of the secret in Akeyless',
+				placeholder: 'item_name',
+				description: 'The name/path of the secret in Akeyless',
 				required: true,
 				displayOptions: {
 					show: {
-						operation: ['readSecret'],
+						operation: ['getStaticSecret', 'getRotatedSecret', 'getDynamicSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Accessibility',
+				name: 'accessibility',
+				type: 'options',
+				options: [
+					{
+						name: 'Regular',
+						value: 'regular',
+					},
+					{
+						name: 'Personal',
+						value: 'personal',
+					},
+				],
+				default: 'regular',
+				description: 'Secret accessibility type',
+				displayOptions: {
+					show: {
+						operation: ['getStaticSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Ignore Cache',
+				name: 'ignoreCache',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to ignore cache and fetch fresh value',
+				displayOptions: {
+					show: {
+						operation: ['getStaticSecret', 'getRotatedSecret'],
+					},
+				},
+			},
+			{
+				displayName: 'Timeout',
+				name: 'timeout',
+				type: 'number',
+				default: 15,
+				description: 'Timeout in seconds for dynamic secret generation',
+				displayOptions: {
+					show: {
+						operation: ['getDynamicSecret'],
 					},
 				},
 			},
@@ -198,9 +228,78 @@ export class Akeyless implements INodeType {
 				let responseData: any;
 
 				switch (operation) {
-					case 'readSecret': {
+					case 'getStaticSecret': {
 						const secretName = this.getNodeParameter('secretName', i) as string;
-						responseData = await readSecret.call(this, baseConfig, secretName, token, i);
+						const accessibility = this.getNodeParameter('accessibility', i, 'regular') as string;
+						const ignoreCache = this.getNodeParameter('ignoreCache', i, false) as boolean;
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/get-secret-value`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: {
+								accessibility: accessibility,
+								'ignore-cache': ignoreCache.toString(),
+								json: false,
+								names: [secretName],
+								token: token,
+							},
+						});
+
+						// Return raw response data
+						responseData = response.data;
+						break;
+					}
+					case 'getRotatedSecret': {
+						const secretName = this.getNodeParameter('secretName', i) as string;
+						const ignoreCache = this.getNodeParameter('ignoreCache', i, false) as boolean;
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/get-rotated-secret-value`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: {
+								'ignore-cache': ignoreCache.toString(),
+								json: false,
+								names: secretName,
+								token: token,
+							},
+						});
+
+						// Return raw response data
+						responseData = response.data;
+						break;
+					}
+					case 'getDynamicSecret': {
+						const secretName = this.getNodeParameter('secretName', i) as string;
+						const timeout = this.getNodeParameter('timeout', i, 15) as number;
+
+						const response = await axios({
+							...baseConfig,
+							method: 'POST',
+							url: `${baseConfig.baseURL}/get-dynamic-secret-value`,
+							headers: {
+								'accept': 'application/json',
+								'Content-Type': 'application/json',
+							},
+							data: {
+								json: false,
+								timeout: timeout,
+								name: secretName,
+								token: token,
+							},
+						});
+
+						// Return raw response data
+						responseData = response.data;
 						break;
 					}
 					default:
