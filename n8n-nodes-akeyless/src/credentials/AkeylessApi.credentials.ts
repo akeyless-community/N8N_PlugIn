@@ -28,12 +28,50 @@ export class AkeylessApi implements ICredentialType {
 			required: true,
 		},
 		{
+			displayName: 'Authentication Method',
+			name: 'authMethod',
+			type: 'options',
+			options: [
+				{
+					name: 'Access ID + Access Key',
+					value: 'accessKey',
+				},
+				{
+					name: 'Token (t-token)',
+					value: 'token',
+				},
+			],
+			default: 'accessKey',
+			description: 'Choose authentication method',
+		},
+		{
+			displayName: 'Token (t-token)',
+			name: 'token',
+			type: 'string',
+			typeOptions: {
+				password: true,
+			},
+			default: '',
+			placeholder: 't-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+			description: 'Akeyless token (t-token). If provided, Access ID and Access Key are not required.',
+			displayOptions: {
+				show: {
+					authMethod: ['token'],
+				},
+			},
+		},
+		{
 			displayName: 'Access ID',
 			name: 'accessId',
 			type: 'string',
 			default: '',
 			placeholder: 'p-xxxxxxxxxxxxx',
 			description: 'Your Akeyless Access ID (starts with "p-")',
+			displayOptions: {
+				show: {
+					authMethod: ['accessKey'],
+				},
+			},
 			required: true,
 		},
 		{
@@ -46,6 +84,11 @@ export class AkeylessApi implements ICredentialType {
 			default: '',
 			placeholder: 'Base64 encoded API key',
 			description: 'Your Akeyless Access Key (Base64 encoded)',
+			displayOptions: {
+				show: {
+					authMethod: ['accessKey'],
+				},
+			},
 			required: true,
 		},
 		{

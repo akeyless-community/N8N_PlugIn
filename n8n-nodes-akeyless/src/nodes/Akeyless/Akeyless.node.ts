@@ -14,6 +14,12 @@ async function authenticateAkeyless(
 	credentials: any,
 ): Promise<string> {
 	try {
+		// If token is provided directly, use it without calling /auth
+		if (credentials.token) {
+			return credentials.token;
+		}
+
+		// Otherwise, authenticate using Access ID + Access Key
 		const authUrl = `${credentials.url}/auth`;
 		
 		if (credentials.allowUnauthorizedCerts) {
