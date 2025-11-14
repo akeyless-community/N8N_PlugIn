@@ -13,12 +13,16 @@
   ],
   "license": "MIT",
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "Akeyless Security",
+    "email": "support@akeyless.io"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/n8n-nodes-akeyless.git"
+    "url": "git+https://github.com/akeyless-community/N8N_PlugIn.git"
+  },
+  "homepage": "https://github.com/akeyless-community/N8N_PlugIn#readme",
+  "bugs": {
+    "url": "https://github.com/akeyless-community/N8N_PlugIn/issues"
   },
   "engines": {
     "node": ">=18.10"
@@ -26,7 +30,8 @@
   "main": "dist/index.js",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
