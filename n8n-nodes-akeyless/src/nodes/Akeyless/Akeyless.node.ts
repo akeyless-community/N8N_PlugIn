@@ -6,7 +6,61 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-import axios, { AxiosRequestConfig } from 'axios';
+function getHttpErrorDetail(error: unknown): string {
+	if (typeof error === 'object' && error !== null && 'responseData' in error) {
+		const rd = (error as { responseData?: { error?: unknown; message?: unknown } }).responseData;
+		if (rd?.error != null) return String(rd.error);
+		if (rd?.message != null) return String(rd.message);
+	}
+	if (error instanceof Error) return error.message;
+	return 'Unknown error occurred';
+}
+
+/** POST JSON using Node's built-in fetch (Node >= 18). */
+async function postJson<T>(url: string, body: Record<string, unknown>, timeoutMs: number): Promise<T> {
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(body),
+			signal: controller.signal,
+		});
+		const text = await response.text();
+		let data: unknown;
+		if (text) {
+			try {
+				data = JSON.parse(text) as unknown;
+			} catch {
+				data = { message: text };
+			}
+		} else {
+			data = {};
+		}
+		if (!response.ok) {
+			const d = data as { error?: string; message?: string };
+			const msg =
+				(typeof d.error === 'string' ? d.error : undefined) ??
+				(typeof d.message === 'string' ? d.message : undefined) ??
+				`HTTP ${response.status} ${response.statusText}`;
+			const err = new Error(msg);
+			(err as Error & { responseData?: unknown }).responseData = data;
+			throw err;
+		}
+		return data as T;
+	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw new Error(`Request timed out after ${timeoutMs}ms`);
+		}
+		throw error;
+	} finally {
+		clearTimeout(timeoutId);
+	}
+}
 
 // Authenticate with Akeyless and get temporary credentials
 async function authenticateAkeyless(
@@ -35,37 +89,27 @@ async function authenticateAkeyless(
 		const accessId = (credentials.accessId as string).trim();
 		const accessKey = (credentials.accessKey as string).trim();
 
-		const config: AxiosRequestConfig = {
-			method: 'POST',
-			url: authUrl,
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			data: {
-				'access-type': 'access_key',
-				'gcp-audience': 'akeyless.io',
-				'json': false,
-				'oci-auth-type': 'apikey',
-				'access-id': accessId,
-				'access-key': accessKey,
-			},
+		const authBody: Record<string, unknown> = {
+			'access-type': 'access_key',
+			'gcp-audience': 'akeyless.io',
+			json: false,
+			'oci-auth-type': 'apikey',
+			'access-id': accessId,
+			'access-key': accessKey,
 		};
-		
-		const response = await axios(config);
 
-		// Akeyless returns token in different possible fields
-		const token = response.data?.token;
+		const data = await postJson<{ token?: string }>(authUrl, authBody, 30000);
+
+		const token = data?.token;
 
 		if (!token) {
-			const responseKeys = Object.keys(response.data || {});
+			const responseKeys = Object.keys(data || {});
 			throw new Error(`Failed to obtain token from Akeyless authentication. Response keys: ${responseKeys.join(', ')}`);
 		}
 
 		return token;
-	} catch (error: any) {
-		const errorMessage = error.response?.data?.error || 
-			error.response?.data?.message || 
-			(error instanceof Error ? error.message : 'Unknown error occurred');
+	} catch (error: unknown) {
+		const errorMessage = getHttpErrorDetail(error);
 		throw new NodeOperationError(this.getNode(), `Akeyless authentication failed: ${errorMessage}`);
 	}
 }
@@ -434,15 +478,8 @@ export class Akeyless implements INodeType {
 				// Authenticate and get token (before each operation as requested)
 				const token = await authenticateAkeyless.call(this, credentials);
 
-				// Base configuration for axios
-				// API Gateway uses query parameters, not Authorization header
-				const baseConfig: AxiosRequestConfig = {
-					baseURL: credentials.url as string,
-					timeout: additionalFields.timeout || 30000,
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				};
+				const baseUrl = credentials.url as string;
+				const requestTimeoutMs = additionalFields.timeout || 30000;
 
 				if (credentials.allowUnauthorizedCerts) {
 					process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -456,73 +493,49 @@ export class Akeyless implements INodeType {
 						const accessibility = this.getNodeParameter('accessibility', i, 'regular') as string;
 						const ignoreCache = this.getNodeParameter('ignoreCache', i, false) as boolean;
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/get-secret-value`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: {
+						responseData = await postJson(
+							`${baseUrl}/get-secret-value`,
+							{
 								accessibility: accessibility,
 								'ignore-cache': ignoreCache.toString(),
 								json: false,
 								names: [secretName],
 								token: token,
 							},
-						});
-
-						// Return raw response data
-						responseData = response.data;
+							requestTimeoutMs,
+						);
 						break;
 					}
 					case 'getRotatedSecret': {
 						const secretName = this.getNodeParameter('secretName', i) as string;
 						const ignoreCache = this.getNodeParameter('ignoreCache', i, false) as boolean;
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/get-rotated-secret-value`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: {
+						responseData = await postJson(
+							`${baseUrl}/get-rotated-secret-value`,
+							{
 								'ignore-cache': ignoreCache.toString(),
 								json: false,
 								names: secretName,
 								token: token,
 							},
-						});
-
-						// Return raw response data
-						responseData = response.data;
+							requestTimeoutMs,
+						);
 						break;
 					}
 					case 'getDynamicSecret': {
 						const secretName = this.getNodeParameter('secretName', i) as string;
 						const timeout = this.getNodeParameter('timeout', i, 15) as number;
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/get-dynamic-secret-value`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: {
+						responseData = await postJson(
+							`${baseUrl}/get-dynamic-secret-value`,
+							{
 								json: false,
 								timeout: timeout,
 								name: secretName,
 								token: token,
 							},
-						});
-
-						// Return raw response data
-						responseData = response.data;
+							requestTimeoutMs,
+						);
 						break;
 					}
 					case 'createSecret': {
@@ -557,89 +570,57 @@ export class Akeyless implements INodeType {
 							requestData.value = secretValue;
 						}
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/create-secret`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: requestData,
-						});
-
-						// Return raw response data
-						responseData = response.data;
+						responseData = await postJson(
+							`${baseUrl}/create-secret`,
+							requestData as Record<string, unknown>,
+							requestTimeoutMs,
+						);
 						break;
 					}
 					case 'deleteItems': {
 						const path = this.getNodeParameter('path', i) as string;
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/delete-items`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: {
+						responseData = await postJson(
+							`${baseUrl}/delete-items`,
+							{
 								json: false,
 								token: token,
 								path: path,
 							},
-						});
-
-						// Return raw response data
-						responseData = response.data;
+							requestTimeoutMs,
+						);
 						break;
 					}
 					case 'createFolder': {
 						const folderName = this.getNodeParameter('folderName', i) as string;
 						const folderAccessibility = this.getNodeParameter('folderAccessibility', i, 'regular') as string;
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/folder-create`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: {
+						responseData = await postJson(
+							`${baseUrl}/folder-create`,
+							{
 								accessibility: folderAccessibility,
 								json: false,
 								name: folderName,
 								token: token,
 							},
-						});
-
-						// Return raw response data
-						responseData = response.data;
+							requestTimeoutMs,
+						);
 						break;
 					}
 					case 'deleteFolder': {
 						const folderName = this.getNodeParameter('folderName', i) as string;
 						const folderAccessibility = this.getNodeParameter('folderAccessibility', i, 'regular') as string;
 
-						const response = await axios({
-							...baseConfig,
-							method: 'POST',
-							url: `${baseConfig.baseURL}/folder-delete`,
-							headers: {
-								'accept': 'application/json',
-								'Content-Type': 'application/json',
-							},
-							data: {
+						responseData = await postJson(
+							`${baseUrl}/folder-delete`,
+							{
 								accessibility: folderAccessibility,
 								json: false,
 								name: folderName,
 								token: token,
 							},
-						});
-
-						// Return raw response data
-						responseData = response.data;
+							requestTimeoutMs,
+						);
 						break;
 					}
 					default:
