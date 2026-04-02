@@ -1,4 +1,4 @@
-# n8n-nodes-akeyless
+# @akeylesslabs/n8n-nodes-akeyless
 
 A secure n8n community node for integrating with Akeyless Vaultless Secrets Management. This node allows you to retrieve, create, and manage secrets from Akeyless directly in your n8n workflows.
 
@@ -16,7 +16,7 @@ This node provides seamless integration between n8n and Akeyless, enabling you t
 
 1. Open your n8n instance
 2. Go to **Settings** → **Community Nodes**
-3. Search for `n8n-nodes-akeyless`
+3. Search for `@akeylesslabs/n8n-nodes-akeyless`
 4. Click **Install**
 5. Restart your workflow editor
 
@@ -36,7 +36,7 @@ npm run build
 npm link
 mkdir -p ~/.n8n/nodes/node_modules
 cd ~/.n8n/nodes/node_modules
-npm link n8n-nodes-akeyless
+npm link @akeylesslabs/n8n-nodes-akeyless
 
 # 5. Restart n8n
 ```

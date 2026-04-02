@@ -1,5 +1,5 @@
 {
-  "name": "n8n-nodes-akeyless",
+  "name": "@akeylesslabs/n8n-nodes-akeyless",
   "version": "1.0.5",
   "description": "Secure N8N node for Akeyless Secrets Management integration with API Key authentication",
   "keywords": [
