@@ -1,7 +1,7 @@
 {
-  "name": "n8n-akeyless-nodes",
-  "version": "1.0.6",
-  "description": "Secure N8N node for Akeyless Secrets Management integration with API Key authentication",
+  "name": "n8n-nodes-akeyless-io",
+  "version": "1.0.8",
+  "description": "Secure n8n community node for Akeyless Secrets Management (npm package: n8n-nodes-akeyless-io)",
   "keywords": [
     "n8n-community-node-package",
     "n8n",

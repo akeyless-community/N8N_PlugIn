@@ -1,6 +1,8 @@
-# n8n-akeyless-nodes
+# n8n-nodes-akeyless-io
 
 A secure n8n community node for integrating with Akeyless Vaultless Secrets Management. This node allows you to retrieve, create, and manage secrets from Akeyless directly in your n8n workflows.
+
+**npm:** [`n8n-nodes-akeyless-io`](https://www.npmjs.com/package/n8n-nodes-akeyless-io) — use this exact name in **Settings → Community Nodes** or with `npm install`. n8n requires community packages on the public registry to be named with the `n8n-nodes-` prefix. In this monorepo, the package source is the `n8n-nodes-akeyless/` directory at the repository root (folder name ≠ npm name).
 
 ## Purpose
 
@@ -12,34 +14,48 @@ This node provides seamless integration between n8n and Akeyless, enabling you t
 
 ## Installation
 
-### For n8n SaaS (Cloud)
+### n8n Cloud (SaaS)
 
 1. Open your n8n instance
 2. Go to **Settings** → **Community Nodes**
-3. Search for `n8n-akeyless-nodes`
-4. Click **Install**
-5. Restart your workflow editor
+3. Enter **`n8n-nodes-akeyless-io`** as the npm package name
+4. Accept the risk notice and click **Install**
+5. Reload or restart the editor if prompted
 
-### For Self-Hosted n8n (Local Development)
+### Self-hosted n8n (from npm)
+
+On the host where n8n loads custom nodes:
 
 ```bash
-# 1. Clone or download this repository
-cd /path/to/n8n-nodes-akeyless
+cd ~/.n8n/nodes && npm install n8n-nodes-akeyless-io
+```
 
-# 2. Install dependencies
+Restart n8n. To upgrade later: `cd ~/.n8n/nodes && npm update n8n-nodes-akeyless-io`.
+
+### Local development (clone + `npm link`)
+
+Use this when you are changing this package’s source and want n8n to load your working tree.
+
+```bash
+# 1. Clone this repository and enter the package folder
+cd /path/to/N8N_PlugIn/n8n-nodes-akeyless
+
+# 2. Install dependencies and build
 npm install
-
-# 3. Build the plugin
 npm run build
 
-# 4. Link it to n8n
+# 3. Register a global link for this package
 npm link
+
+# 4. Link it into n8n’s custom nodes directory (package name must match)
 mkdir -p ~/.n8n/nodes/node_modules
 cd ~/.n8n/nodes/node_modules
-npm link n8n-akeyless-nodes
+npm link n8n-nodes-akeyless-io
 
 # 5. Restart n8n
 ```
+
+To stop using the link, remove `node_modules/n8n-nodes-akeyless-io` under `~/.n8n/nodes` (or unlink) and run `npm install n8n-nodes-akeyless-io` again for a normal install.
 
 ## Configuration
 

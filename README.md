@@ -4,25 +4,31 @@ This repository contains the n8n community node for integrating with [Akeyless V
 
 ## Package
 
-The n8n node package is located in the [`n8n-nodes-akeyless`](./n8n-nodes-akeyless/) directory.
+The n8n node package lives in the [`n8n-nodes-akeyless`](./n8n-nodes-akeyless/) directory.
 
-👉 **[View Package Documentation →](./n8n-nodes-akeyless/README.md)**
+**npm package name:** [`n8n-nodes-akeyless-io`](https://www.npmjs.com/package/n8n-nodes-akeyless-io) — n8n’s Community Nodes UI only accepts names that start with `n8n-nodes-`, so this is the name to install or search for. Source code lives in the [`n8n-nodes-akeyless`](./n8n-nodes-akeyless/) directory.
+
+👉 **[Full package documentation →](./n8n-nodes-akeyless/README.md)**
 
 ## Installation
 
-### For n8n SaaS (Cloud)
+### n8n Cloud (SaaS)
 
 1. Open your n8n instance
 2. Go to **Settings** → **Community Nodes**
-3. Search for `n8n-akeyless-nodes`
-4. Click **Install**
-5. Restart your workflow editor
+3. Enter **`n8n-nodes-akeyless-io`** as the npm package name (or search/browse the registry)
+4. Accept the risk notice and click **Install**
+5. Reload or restart the editor if prompted
 
-### For Self-Hosted n8n
+### Self-hosted n8n (install from npm)
+
+From the machine where n8n runs (or where custom nodes are installed):
 
 ```bash
-npm install n8n-akeyless-nodes
+cd ~/.n8n/nodes && npm install n8n-nodes-akeyless-io
 ```
+
+Restart n8n afterward.
 
 ## Features
 
@@ -35,7 +41,7 @@ npm install n8n-akeyless-nodes
 ## Repository
 
 - **GitHub**: [akeyless-community/N8N_PlugIn](https://github.com/akeyless-community/N8N_PlugIn)
-- **npm**: [n8n-akeyless-nodes](https://www.npmjs.com/package/n8n-akeyless-nodes)
+- **npm**: [n8n-nodes-akeyless-io](https://www.npmjs.com/package/n8n-nodes-akeyless-io)
 
 ## License
 
