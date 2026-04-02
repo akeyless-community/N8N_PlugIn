@@ -14,14 +14,14 @@ The n8n node package is located in the [`n8n-nodes-akeyless`](./n8n-nodes-akeyle
 
 1. Open your n8n instance
 2. Go to **Settings** → **Community Nodes**
-3. Search for `@akeylesslabs/n8n-nodes-akeyless`
+3. Search for `n8n-akeyless-nodes`
 4. Click **Install**
 5. Restart your workflow editor
 
 ### For Self-Hosted n8n
 
 ```bash
-npm install @akeylesslabs/n8n-nodes-akeyless
+npm install n8n-akeyless-nodes
 ```
 
 ## Features
@@ -35,7 +35,7 @@ npm install @akeylesslabs/n8n-nodes-akeyless
 ## Repository
 
 - **GitHub**: [akeyless-community/N8N_PlugIn](https://github.com/akeyless-community/N8N_PlugIn)
-- **npm**: [@akeylesslabs/n8n-nodes-akeyless](https://www.npmjs.com/package/@akeylesslabs/n8n-nodes-akeyless)
+- **npm**: [n8n-akeyless-nodes](https://www.npmjs.com/package/n8n-akeyless-nodes)
 
 ## License
 
