@@ -6,3 +6,6 @@ dist/
 *.tgz
 *.tar.gz
 
+# Maintainer-only helper; keep local, do not commit
+scripts/publish-npm.sh
+
