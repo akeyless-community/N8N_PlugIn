@@ -20,3 +20,49 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+Security Disclaimer (Community Repository)
+Security Notice and Disclaimer
+
+This repository is provided as a community resource and is made available under an open-source license on an “AS IS” basis, without warranties or guarantees of any kind, express or implied.
+
+While we may from time to time review, update, or maintain this repository, we do not guarantee that the code, dependencies, or any included components are free from vulnerabilities, security risks, or defects.
+
+No Ongoing Monitoring Obligation
+We do not undertake any obligation to:
+
+Continuously monitor for vulnerabilities in this repository or its dependencies
+
+Notify users of newly discovered vulnerabilities
+
+Provide security patches, updates, or remediation guidance
+
+Users are solely responsible for:
+
+Evaluating the security of the code before use
+
+Monitoring for vulnerabilities (e.g., via CVEs, dependency scanners, etc.)
+
+Applying appropriate updates, patches, or mitigations
+
+Third-Party Components
+This repository may include or depend on third-party packages. We:
+
+Do not control or audit all third-party components
+
+Do not guarantee their security or ongoing maintenance
+
+Are not responsible for vulnerabilities originating from such components
+
+No Production Guarantee
+This repository is not guaranteed to be suitable for production use. Any use in production environments is at the user’s own risk.
+
+Limitation of Liability
+To the maximum extent permitted by law, we shall not be liable for any damages, including but not limited to:
+
+Security breaches
+
+Data loss
+
+Service interruptions
+
+Any direct or indirect damages arising from the use of this repository
