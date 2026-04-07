@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-akeyless-io",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Secure n8n community node for Akeyless Secrets Management (npm package: n8n-nodes-akeyless-io)",
   "keywords": [
     "n8n-community-node-package",
@@ -34,7 +34,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "npm-shrinkwrap.json"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
@@ -60,6 +61,7 @@
     "n8n-workflow": ">=1.60.0"
   },
   "scripts": {
+    "prepack": "node -e \"require('fs').copyFileSync('package-lock.json','npm-shrinkwrap.json')\"",
     "build": "tsc && npm run copy:assets",
     "copy:assets": "mkdir -p dist/nodes/Akeyless && cp src/nodes/Akeyless/*.svg dist/nodes/Akeyless/ 2>/dev/null || true",
     "dev": "tsc --watch",

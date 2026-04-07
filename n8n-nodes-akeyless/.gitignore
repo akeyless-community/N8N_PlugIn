@@ -6,6 +6,9 @@ dist/
 *.tgz
 *.tar.gz
 
+# Generated from package-lock.json at publish time (included in npm tarball)
+npm-shrinkwrap.json
+
 # Maintainer-only helper; keep local, do not commit
 scripts/publish-npm.sh
 
