@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-akeyless-io",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Secure n8n community node for Akeyless Secrets Management (npm package: n8n-nodes-akeyless-io)",
   "keywords": [
     "n8n-community-node-package",

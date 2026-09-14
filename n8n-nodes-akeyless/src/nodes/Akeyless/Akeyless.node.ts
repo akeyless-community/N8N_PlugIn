@@ -1,5 +1,7 @@
 import {
 	IExecuteFunctions,
+	IHttpRequestOptions,
+	IN8nHttpFullResponse,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
@@ -16,50 +18,82 @@ function getHttpErrorDetail(error: unknown): string {
 	return 'Unknown error occurred';
 }
 
-/** POST JSON using Node's built-in fetch (Node >= 18). */
-async function postJson<T>(url: string, body: Record<string, unknown>, timeoutMs: number): Promise<T> {
-	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+/**
+ * POST JSON through n8n's request helper.
+ *
+ * TLS certificate validation is relaxed (when the credential's
+ * "allowUnauthorizedCerts" option is enabled) strictly for this request via
+ * `skipSslCertificateValidation`. Never relax TLS through the process-wide
+ * Node.js TLS environment variable: doing so disables certificate verification
+ * for every other node, workflow and credential running in the same n8n process.
+ */
+async function postJson<T>(
+	this: IExecuteFunctions,
+	url: string,
+	body: Record<string, unknown>,
+	timeoutMs: number,
+	skipSslCertificateValidation: boolean,
+): Promise<T> {
+	const requestOptions: IHttpRequestOptions = {
+		method: 'POST',
+		url,
+		headers: {
+			accept: 'application/json',
+			'Content-Type': 'application/json',
+		},
+		body,
+		json: true,
+		timeout: timeoutMs,
+		skipSslCertificateValidation,
+		// Resolve non-2xx responses instead of throwing so the Akeyless error
+		// payload can be surfaced exactly as before.
+		ignoreHttpStatusErrors: true,
+		returnFullResponse: true,
+	};
+
+	let response: IN8nHttpFullResponse;
 	try {
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: {
-				accept: 'application/json',
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(body),
-			signal: controller.signal,
-		});
-		const text = await response.text();
-		let data: unknown;
-		if (text) {
-			try {
-				data = JSON.parse(text) as unknown;
-			} catch {
-				data = { message: text };
-			}
-		} else {
-			data = {};
-		}
-		if (!response.ok) {
-			const d = data as { error?: string; message?: string };
-			const msg =
-				(typeof d.error === 'string' ? d.error : undefined) ??
-				(typeof d.message === 'string' ? d.message : undefined) ??
-				`HTTP ${response.status} ${response.statusText}`;
-			const err = new Error(msg);
-			(err as Error & { responseData?: unknown }).responseData = data;
-			throw err;
-		}
-		return data as T;
+		response = (await this.helpers.httpRequest(requestOptions)) as IN8nHttpFullResponse;
 	} catch (error) {
-		if (error instanceof Error && error.name === 'AbortError') {
+		if (isTimeoutError(error)) {
 			throw new Error(`Request timed out after ${timeoutMs}ms`);
 		}
 		throw error;
-	} finally {
-		clearTimeout(timeoutId);
 	}
+
+	const data = parseResponseBody(response.body);
+	const status = response.statusCode;
+	if (status < 200 || status >= 300) {
+		const d = data as { error?: string; message?: string };
+		const msg =
+			(typeof d.error === 'string' ? d.error : undefined) ??
+			(typeof d.message === 'string' ? d.message : undefined) ??
+			`HTTP ${status} ${response.statusMessage ?? ''}`.trimEnd();
+		const err = new Error(msg);
+		(err as Error & { responseData?: unknown }).responseData = data;
+		throw err;
+	}
+	return data as T;
+}
+
+function parseResponseBody(body: unknown): unknown {
+	if (body === undefined || body === null || body === '') return {};
+	if (typeof body === 'string') {
+		try {
+			return JSON.parse(body) as unknown;
+		} catch {
+			return { message: body };
+		}
+	}
+	return body;
+}
+
+function isTimeoutError(error: unknown): boolean {
+	if (typeof error !== 'object' || error === null) return false;
+	const e = error as { code?: unknown; name?: unknown; message?: unknown };
+	if (e.code === 'ECONNABORTED' || e.code === 'ETIMEDOUT') return true;
+	if (e.name === 'AbortError') return true;
+	return typeof e.message === 'string' && /timeout/i.test(e.message);
 }
 
 // Authenticate with Akeyless and get temporary credentials
@@ -80,10 +114,7 @@ async function authenticateAkeyless(
 		}
 
 		const authUrl = `${credentials.url}/auth`;
-		
-		if (credentials.allowUnauthorizedCerts) {
-			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-		}
+		const skipSslCertificateValidation = Boolean(credentials.allowUnauthorizedCerts);
 
 		// Trim whitespace from credentials
 		const accessId = (credentials.accessId as string).trim();
@@ -98,7 +129,7 @@ async function authenticateAkeyless(
 			'access-key': accessKey,
 		};
 
-		const data = await postJson<{ token?: string }>(authUrl, authBody, 30000);
+		const data = await postJson.call(this, authUrl, authBody, 30000, skipSslCertificateValidation) as { token?: string };
 
 		const token = data?.token;
 
@@ -480,10 +511,7 @@ export class Akeyless implements INodeType {
 
 				const baseUrl = credentials.url as string;
 				const requestTimeoutMs = additionalFields.timeout || 30000;
-
-				if (credentials.allowUnauthorizedCerts) {
-					process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-				}
+				const skipSslCertificateValidation = Boolean(credentials.allowUnauthorizedCerts);
 
 				let responseData: any;
 
@@ -493,7 +521,8 @@ export class Akeyless implements INodeType {
 						const accessibility = this.getNodeParameter('accessibility', i, 'regular') as string;
 						const ignoreCache = this.getNodeParameter('ignoreCache', i, false) as boolean;
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/get-secret-value`,
 							{
 								accessibility: accessibility,
@@ -503,6 +532,7 @@ export class Akeyless implements INodeType {
 								token: token,
 							},
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
@@ -510,7 +540,8 @@ export class Akeyless implements INodeType {
 						const secretName = this.getNodeParameter('secretName', i) as string;
 						const ignoreCache = this.getNodeParameter('ignoreCache', i, false) as boolean;
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/get-rotated-secret-value`,
 							{
 								'ignore-cache': ignoreCache.toString(),
@@ -519,6 +550,7 @@ export class Akeyless implements INodeType {
 								token: token,
 							},
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
@@ -526,7 +558,8 @@ export class Akeyless implements INodeType {
 						const secretName = this.getNodeParameter('secretName', i) as string;
 						const timeout = this.getNodeParameter('timeout', i, 15) as number;
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/get-dynamic-secret-value`,
 							{
 								json: false,
@@ -535,6 +568,7 @@ export class Akeyless implements INodeType {
 								token: token,
 							},
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
@@ -570,17 +604,20 @@ export class Akeyless implements INodeType {
 							requestData.value = secretValue;
 						}
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/create-secret`,
 							requestData as Record<string, unknown>,
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
 					case 'deleteItems': {
 						const path = this.getNodeParameter('path', i) as string;
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/delete-items`,
 							{
 								json: false,
@@ -588,6 +625,7 @@ export class Akeyless implements INodeType {
 								path: path,
 							},
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
@@ -595,7 +633,8 @@ export class Akeyless implements INodeType {
 						const folderName = this.getNodeParameter('folderName', i) as string;
 						const folderAccessibility = this.getNodeParameter('folderAccessibility', i, 'regular') as string;
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/folder-create`,
 							{
 								accessibility: folderAccessibility,
@@ -604,6 +643,7 @@ export class Akeyless implements INodeType {
 								token: token,
 							},
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
@@ -611,7 +651,8 @@ export class Akeyless implements INodeType {
 						const folderName = this.getNodeParameter('folderName', i) as string;
 						const folderAccessibility = this.getNodeParameter('folderAccessibility', i, 'regular') as string;
 
-						responseData = await postJson(
+						responseData = await postJson.call(
+							this,
 							`${baseUrl}/folder-delete`,
 							{
 								accessibility: folderAccessibility,
@@ -620,6 +661,7 @@ export class Akeyless implements INodeType {
 								token: token,
 							},
 							requestTimeoutMs,
+							skipSslCertificateValidation,
 						);
 						break;
 					}
@@ -647,11 +689,6 @@ export class Akeyless implements INodeType {
 				}
 				throw error;
 			}
-		}
-
-		// Reset SSL behavior
-		if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
-			delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
 		}
 
 		return [returnData];
